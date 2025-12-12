@@ -1,0 +1,105 @@
+package parser;
+
+public class sym {
+  public static final int DIVIDE = 22;
+  public static final int POW = 24;
+  public static final int STRING_LITERAL = 47;
+  public static final int CHAR = 17;
+  public static final int CHAR_LITERAL = 46;
+  public static final int GE = 31;
+  public static final int XOR = 35;
+  public static final int CASE = 6;
+  public static final int DOUBLE = 15;
+  public static final int LPAREN = 36;
+  public static final int CONTINUE = 12;
+  public static final int INT = 14;
+  public static final int PRINTLN = 13;
+  public static final int FOR = 9;
+  public static final int MINUS = 20;
+  public static final int RPAREN = 37;
+  public static final int BOOLEAN_LITERAL = 45;
+  public static final int SEMICOLON = 40;
+  public static final int NOT = 34;
+  public static final int AND = 32;
+  public static final int LT = 28;
+  public static final int OR = 33;
+  public static final int COMMA = 42;
+  public static final int BOOL = 16;
+  public static final int PLUS = 19;
+  public static final int MULTIPLY = 21;
+  public static final int ASSIGN = 25;
+  public static final int IF = 3;
+  public static final int LE = 30;
+  public static final int EOF = 0;
+  public static final int error = 1;
+  public static final int MODULO = 23;
+  public static final int NEQ = 27;
+  public static final int BREAK = 11;
+  public static final int EQ = 26;
+  public static final int SWITCH = 5;
+  public static final int COLON = 41;
+  public static final int LBRACE = 38;
+  public static final int ELSE = 4;
+  public static final int WHILE = 8;
+  public static final int DEFAULT = 7;
+  public static final int RBRACE = 39;
+  public static final int STRING = 18;
+  public static final int DOUBLE_LITERAL = 44;
+  public static final int GT = 29;
+  public static final int VAR = 2;
+  public static final int DO = 10;
+  public static final int IDENTIFIER = 48;
+  public static final int INTEGER_LITERAL = 43;
+  public static final String[] terminalNames = new String[] {
+  "EOF",
+  "error",
+  "VAR",
+  "IF",
+  "ELSE",
+  "SWITCH",
+  "CASE",
+  "DEFAULT",
+  "WHILE",
+  "FOR",
+  "DO",
+  "BREAK",
+  "CONTINUE",
+  "PRINTLN",
+  "INT",
+  "DOUBLE",
+  "BOOL",
+  "CHAR",
+  "STRING",
+  "PLUS",
+  "MINUS",
+  "MULTIPLY",
+  "DIVIDE",
+  "MODULO",
+  "POW",
+  "ASSIGN",
+  "EQ",
+  "NEQ",
+  "LT",
+  "GT",
+  "LE",
+  "GE",
+  "AND",
+  "OR",
+  "NOT",
+  "XOR",
+  "LPAREN",
+  "RPAREN",
+  "LBRACE",
+  "RBRACE",
+  "SEMICOLON",
+  "COLON",
+  "COMMA",
+  "INTEGER_LITERAL",
+  "DOUBLE_LITERAL",
+  "BOOLEAN_LITERAL",
+  "CHAR_LITERAL",
+  "STRING_LITERAL",
+  "IDENTIFIER"
+  };
+}
+
