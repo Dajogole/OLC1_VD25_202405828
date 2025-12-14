@@ -1,0 +1,416 @@
+package parser;
+
+import java_cup.runtime.*;
+import lexer.Lexer;
+import ast.*;
+import ast.expresiones.*;
+import ast.sentencias.*;
+import semantic.Tipo;
+import reports.ErrorTipo;
+import reports.TablaErrores;
+import java.util.List;
+import java.util.ArrayList;
+
+action code {:
+    // Código de acción para reportar errores
+    public void report_error(String message, Object info) {
+        System.err.println("Error sintáctico: " + message + " en línea " + 0 + ", columna " + 0);
+    }
+
+    public void report_fatal_error(String message, Object info) {
+        System.err.println("Error sintáctico fatal: " + message + " en línea " + 0 + ", columna " + 0);
+    }
+:}
+
+parser code {:
+    // Código del parser
+    private Programa programa;
+    
+    public Programa getPrograma() {
+        return programa;
+    }
+    
+    public void setPrograma(Programa p) {
+        this.programa = p;
+    }
+
+        // --- Reporte de errores (dinámico) ---
+    private TablaErrores tablaErrores;
+
+    public void setTablaErrores(TablaErrores tablaErrores) {
+        this.tablaErrores = tablaErrores;
+    }
+
+    @Override
+    public void report_error(String message, Object info) {
+        int linea = 0;
+        int columna = 0;
+
+        if (info instanceof java_cup.runtime.Symbol) {
+            java_cup.runtime.Symbol s = (java_cup.runtime.Symbol) info;
+            linea = s.left;
+            columna = s.right;
+        }
+
+        if (tablaErrores != null) {
+            tablaErrores.agregarError(ErrorTipo.SINTACTICO, message, linea, columna);
+        } else {
+            System.err.println("Error sintáctico: " + message + " en línea " + linea + ", columna " + columna);
+        }
+    }
+
+    @Override
+    public void report_fatal_error(String message, Object info) throws Exception {
+        report_error(message, info);
+        super.report_fatal_error(message, info);
+    }
+
+
+:}
+
+/* Terminales (tokens) */
+terminal VAR, IF, ELSE, SWITCH, CASE, DEFAULT, WHILE, FOR, DO, BREAK, CONTINUE, PRINTLN;
+terminal INT, DOUBLE, BOOL, CHAR, STRING;
+terminal PLUS, MINUS, MULTIPLY, DIVIDE, MODULO, POW;
+terminal ASSIGN, EQ, NEQ, LT, GT, LE, GE;
+terminal AND, OR, NOT, XOR;
+terminal LPAREN, RPAREN, LBRACE, RBRACE, SEMICOLON, COLON, COMMA;
+terminal Integer INTEGER_LITERAL;
+terminal Double DOUBLE_LITERAL;
+terminal Boolean BOOLEAN_LITERAL;
+terminal Character CHAR_LITERAL;
+terminal String STRING_LITERAL, IDENTIFIER;
+
+/* No terminales */
+non terminal Programa programa;
+non terminal List<Sentencia> sentencias;
+non terminal Sentencia sentencia;
+non terminal DeclaracionVariable decl_var;
+non terminal AsignacionVariable asign_var;
+non terminal Expresion expresion;
+non terminal Tipo tipo;
+non terminal BloqueSentencias bloque;
+non terminal IfSentencia if_sentencia;
+non terminal SwitchSentencia switch_sentencia;
+non terminal List<Case> cases;
+non terminal Case case_sent;
+non terminal Default default_sent;
+non terminal WhileSentencia while_sentencia;
+non terminal ForSentencia for_sentencia;
+non terminal DoWhileSentencia do_while_sentencia;
+non terminal PrintlnSentencia println_sentencia;
+non terminal BreakSentencia break_sentencia;
+non terminal ContinueSentencia continue_sentencia;
+non terminal Sentencia incremento;
+non terminal Sentencia actualizacion_for;
+non terminal ExpresionAritmetica expr_arit;
+non terminal ExpresionRelacional expr_rel;
+non terminal ExpresionLogica expr_log;
+non terminal ExpresionCasteo expr_casteo;
+non terminal ExpresionAgrupada expr_agrup;
+
+/* Precedencia y asociatividad */
+
+/* Operadores lógicos de menor a mayor prioridad */
+precedence left OR;
+precedence left XOR;
+precedence left AND;
+
+/* Comparaciones */
+precedence left EQ, NEQ;
+precedence left LT, GT, LE, GE;
+
+/* Aritméticos */
+precedence left PLUS, MINUS;
+precedence left MULTIPLY, DIVIDE, MODULO;
+
+/* Potencia: asociativa a la derecha (a ** b ** c = a ** (b ** c)) */
+precedence right POW;
+
+/* Not lógico (unario) con mayor precedencia */
+precedence right NOT;
+
+
+/* Reglas */
+
+programa ::= sentencias:e
+    {: 
+        setPrograma(new Programa(e, 0, 0));
+        RESULT = programa;
+    :}
+    ;
+
+sentencias ::= sentencias:s1 sentencia:s2
+    {: 
+        List<Sentencia> lista = new ArrayList<Sentencia>();
+        if (s1 != null) lista.addAll(s1);
+        if (s2 != null) lista.add(s2);
+        RESULT = lista;
+    :}
+    | /* vacío */
+    {: RESULT = new ArrayList<Sentencia>(); :}
+    ;
+
+sentencia ::= decl_var:d SEMICOLON
+    {: RESULT = d; :}
+    | incremento:i SEMICOLON
+    {: RESULT = i; :}
+    | asign_var:a SEMICOLON
+    {: RESULT = a; :}
+    | if_sentencia:i
+    {: RESULT = i; :}
+    | switch_sentencia:s
+    {: RESULT = s; :}
+    | while_sentencia:w
+    {: RESULT = w; :}
+    | for_sentencia:f
+    {: RESULT = f; :}
+    | do_while_sentencia:d
+    {: RESULT = d; :}
+    | break_sentencia:b SEMICOLON
+    {: RESULT = b; :}
+    | continue_sentencia:c SEMICOLON
+    {: RESULT = c; :}
+    | println_sentencia:p SEMICOLON
+    {: RESULT = p; :}
+    | bloque:b
+    {: RESULT = b; :}
+    ;
+
+bloque ::= LBRACE sentencias:s RBRACE
+    {: RESULT = new BloqueSentencias(s, 0, 0); :}
+    ;
+
+decl_var ::= VAR IDENTIFIER:i COLON tipo:t
+    {: RESULT = new DeclaracionVariable(i, t, null, 0, 0); :}
+    | VAR IDENTIFIER:i COLON tipo:t ASSIGN expresion:e
+    {: RESULT = new DeclaracionVariable(i, t, e, 0, 0); :}
+    ;
+
+tipo ::= INT
+    {: RESULT = Tipo.INT; :}
+    | DOUBLE
+    {: RESULT = Tipo.DOUBLE; :}
+    | BOOL
+    {: RESULT = Tipo.BOOL; :}
+    | CHAR
+    {: RESULT = Tipo.CHAR; :}
+    | STRING
+    {: RESULT = Tipo.STRING; :}
+    ;
+
+asign_var ::= IDENTIFIER:i ASSIGN expresion:e
+    {: RESULT = new AsignacionVariable(i, e, 0, 0); :}
+    ;
+
+expresion ::= IDENTIFIER:i
+    {: RESULT = new Identificador(i, 0, 0); :}
+    | INTEGER_LITERAL:i
+    {: RESULT = new LiteralEntero(i, 0, 0); :}
+    | DOUBLE_LITERAL:d
+    {: RESULT = new LiteralDouble(d, 0, 0); :}
+    | BOOLEAN_LITERAL:b
+    {: RESULT = new LiteralBooleano(b, 0, 0); :}
+    | CHAR_LITERAL:c
+    {: RESULT = new LiteralChar(c, 0, 0); :}
+    | STRING_LITERAL:s
+    {: RESULT = new LiteralString(s, 0, 0); :}
+    | expr_arit:e
+    {: RESULT = e; :}
+    | expr_rel:e
+    {: RESULT = e; :}
+    | expr_log:e
+    {: RESULT = e; :}
+    | expr_casteo:e
+    {: RESULT = e; :}
+    | expr_agrup:e
+    {: RESULT = e; :}
+    ;
+
+expr_arit ::= expresion:e1 PLUS expresion:e2
+    {: RESULT = new ExpresionAritmetica(
+            e1, e2,
+            OperadorAritmetico.SUMA,
+            0, 0
+       ); :}
+    | expresion:e1 MINUS expresion:e2
+    {: RESULT = new ExpresionAritmetica(
+            e1, e2,
+            OperadorAritmetico.RESTA,
+            0, 0
+       ); :}
+    | expresion:e1 MULTIPLY expresion:e2
+    {: RESULT = new ExpresionAritmetica(
+            e1, e2,
+            OperadorAritmetico.MULTIPLICACION,
+            0, 0
+       ); :}
+    | expresion:e1 DIVIDE expresion:e2
+    {: RESULT = new ExpresionAritmetica(
+            e1, e2,
+            OperadorAritmetico.DIVISION,
+            0, 0
+       ); :}
+    | expresion:e1 MODULO expresion:e2
+    {: RESULT = new ExpresionAritmetica(
+            e1, e2,
+            OperadorAritmetico.MODULO,
+            0, 0
+       ); :}
+    | expresion:e1 POW expresion:e2
+    {: RESULT = new ExpresionAritmetica(
+            e1, e2,
+            OperadorAritmetico.POTENCIA,
+            0, 0
+       ); :}
+    | MINUS expresion:e
+    {: RESULT = new ExpresionAritmetica(
+            null, e,
+            OperadorAritmetico.NEGACION_UNARIA,
+            0, 0
+       ); :}
+    ;
+
+expr_rel ::= expresion:e1 LT expresion:e2
+    {: RESULT = new ExpresionRelacional(
+            e1, e2,
+            OperadorRelacional.MENOR,
+            0, 0
+       ); :}
+    | expresion:e1 GT expresion:e2
+    {: RESULT = new ExpresionRelacional(
+            e1, e2,
+            OperadorRelacional.MAYOR,
+            0, 0
+       ); :}
+    | expresion:e1 LE expresion:e2
+    {: RESULT = new ExpresionRelacional(
+            e1, e2,
+            OperadorRelacional.MENOR_IGUAL,
+            0, 0
+       ); :}
+    | expresion:e1 GE expresion:e2
+    {: RESULT = new ExpresionRelacional(
+            e1, e2,
+            OperadorRelacional.MAYOR_IGUAL,
+            0, 0
+       ); :}
+    | expresion:e1 EQ expresion:e2
+    {: RESULT = new ExpresionRelacional(
+            e1, e2,
+            OperadorRelacional.IGUAL,
+            0, 0
+       ); :}
+    | expresion:e1 NEQ expresion:e2
+    {: RESULT = new ExpresionRelacional(
+            e1, e2,
+            OperadorRelacional.DIFERENTE,
+            0, 0
+       ); :}
+    ;
+
+
+expr_log ::= expresion:e1 AND expresion:e2
+    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.AND, 0, 0); :}
+    | expresion:e1 OR expresion:e2
+    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.OR, 0, 0); :}
+    | expresion:e1 XOR expresion:e2
+    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.XOR, 0, 0); :}
+    | NOT expresion:e
+    {: RESULT = new ExpresionLogica(null, e, OperadorLogico.NOT, 0, 0); :}
+    ;
+
+expr_casteo ::= LPAREN tipo:t RPAREN expresion:e
+    {: RESULT = new ExpresionCasteo(t, e, 0, 0); :}
+    ;
+
+expr_agrup ::= LPAREN expresion:e RPAREN
+    {: RESULT = new ExpresionAgrupada(e, 0, 0); :}
+    ;
+
+if_sentencia ::= IF LPAREN expresion:e RPAREN bloque:b
+    {: RESULT = new IfSentencia(e, b, null, null, 0, 0); :}
+    | IF LPAREN expresion:e RPAREN bloque:b1 ELSE bloque:b2
+    {: RESULT = new IfSentencia(e, b1, b2, null, 0, 0); :}
+    | IF LPAREN expresion:e RPAREN bloque:b1 ELSE if_sentencia:i
+    {: RESULT = new IfSentencia(e, b1, null, i, 0, 0); :}
+    ;
+
+switch_sentencia ::= SWITCH LPAREN expresion:e RPAREN LBRACE cases:c RBRACE
+    {: RESULT = new SwitchSentencia(e, c, null, 0, 0); :}
+    | SWITCH LPAREN expresion:e RPAREN LBRACE cases:c default_sent:d RBRACE
+    {: RESULT = new SwitchSentencia(e, c, d, 0, 0); :}
+    | SWITCH LPAREN expresion:e RPAREN LBRACE default_sent:d RBRACE
+    {: RESULT = new SwitchSentencia(e, null, d, 0, 0); :}
+    ;
+
+cases ::= cases:c1 case_sent:c2
+    {: 
+        List<Case> lista = new ArrayList<Case>();
+        if (c1 != null) lista.addAll(c1);
+        if (c2 != null) lista.add(c2);
+        RESULT = lista;
+    :}
+    | case_sent:c
+    {: 
+        List<Case> lista = new ArrayList<Case>();
+        if (c != null) lista.add(c);
+        RESULT = lista;
+    :}
+    ;
+
+case_sent ::= CASE expresion:e COLON sentencias:s
+    {: RESULT = new Case(e, s, 0, 0); :}
+    ;
+
+default_sent ::= DEFAULT COLON sentencias:s
+    {: RESULT = new Default(s, 0, 0); :}
+    ;
+
+while_sentencia ::= WHILE LPAREN expresion:e RPAREN bloque:b
+    {: RESULT = new WhileSentencia(e, b, 0, 0); :}
+    ;
+
+// Nota: soporta "x++" en el incremento del for
+for_sentencia ::= FOR LPAREN asign_var:a1 SEMICOLON expresion:e SEMICOLON actualizacion_for:a2 RPAREN bloque:b
+    {: RESULT = new ForSentencia(a1, e, a2, b, 0, 0); :}
+    | FOR LPAREN decl_var:d SEMICOLON expresion:e SEMICOLON actualizacion_for:a RPAREN bloque:b
+    {: RESULT = new ForSentencia(d, e, a, b, 0, 0); :}
+    ;
+
+// Actualización del for: puede ser asignación o incremento (x++)
+actualizacion_for ::= asign_var:a
+    {: RESULT = a; :}
+    | incremento:i
+    {: RESULT = i; :}
+    ;
+
+// Incremento postfijo: id++
+incremento ::= IDENTIFIER:i PLUS PLUS
+    {:
+        Expresion inc = new ExpresionAritmetica(
+            new Identificador(i, 0, 0),
+            new LiteralEntero(1, 0, 0),
+            OperadorAritmetico.SUMA,
+            0, 0
+        );
+        RESULT = new AsignacionVariable(i, inc, 0, 0);
+    :}
+    ;
+
+
+do_while_sentencia ::= DO bloque:b WHILE LPAREN expresion:e RPAREN SEMICOLON
+    {: RESULT = new DoWhileSentencia(b, e, 0, 0); :}
+    ;
+
+println_sentencia ::= PRINTLN LPAREN expresion:e RPAREN
+    {: RESULT = new PrintlnSentencia(e, 0, 0); :}
+    ;
+
+break_sentencia ::= BREAK
+    {: RESULT = new BreakSentencia(0, 0); :}
+    ;
+
+continue_sentencia ::= CONTINUE
+    {: RESULT = new ContinueSentencia(0, 0); :}
+    ;
