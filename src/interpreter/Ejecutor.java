@@ -19,6 +19,8 @@ import semantic.Tipo;
 import semantic.VisitanteSemantico;
 import semantic.Simbolo;
 import ui.ConsolePanel;
+import reports.ErrorInfo;
+
 
 public class Ejecutor {
 
@@ -50,60 +52,60 @@ public class Ejecutor {
         PreprocessResult prep = preprocesarParaParseo(codigoOriginal, tablaErrores);
 
         try {
-            Lexer lexer = new Lexer(new StringReader(prep.codigoProcesado));
-            lexer.setTablaErrores(tablaErrores);
+    Lexer lexer = new Lexer(new StringReader(prep.codigoProcesado));
+    lexer.setTablaErrores(tablaErrores);
 
-            Parser parser = new Parser(lexer);
-            parser.setTablaErrores(tablaErrores);
+    Parser parser = new Parser(lexer);
+    parser.setTablaErrores(tablaErrores);
 
-            parser.parse();
+    parser.parse();
 
-            Programa programa = parser.getPrograma();
-            if (programa == null) {
-                tablaErrores.agregarError(
-                    ErrorTipo.SINTACTICO,
-                    "No se pudo construir el AST: el programa es nulo.",
-                    1,
-                    1
-                );
-                return;
-            }
+    Programa programa = parser.getPrograma();
+    if (programa == null) {
+        tablaErrores.agregarError(
+            ErrorTipo.SINTACTICO,
+            "No se pudo construir el AST: el programa es nulo.",
+            1,
+            1
+        );
+        return;
+    }
 
-            VisitanteSemantico semantico = new VisitanteSemantico();
-            programa.accept(semantico);
+    VisitanteSemantico semantico = new VisitanteSemantico();
+    programa.accept(semantico);
 
-            TablaSimbolos tablaSemantica = semantico.getTablaSimbolos();
+    TablaSimbolos tablaSemantica = semantico.getTablaSimbolos();
 
-            actualizarLineasYColumnas(tablaSemantica, codigoOriginal);
+    actualizarLineasYColumnas(tablaSemantica, codigoOriginal);
 
-            ultimaTablaSimbolos = tablaSemantica;
+    ultimaTablaSimbolos = tablaSemantica;
 
-            List<SemanticError> erroresSemanticos = semantico.getErrores();
-            agregarErroresSemanticosMapeados(tablaErrores, erroresSemanticos, sourceIndex);
+    List<SemanticError> erroresSemanticos = semantico.getErrores();
+    agregarErroresSemanticosMapeados(tablaErrores, erroresSemanticos, sourceIndex);
 
-            agregarErroresLengthManual(tablaErrores, sourceIndex);
+    agregarErroresLengthManual(tablaErrores, sourceIndex);
 
-            if (tablaErrores.tieneErrores()) {
-                return;
-            }
+    if (tablaErrores.tieneErrores()) {
+        return;
+    }
 
-            ContextoEjecucion contexto = new ContextoEjecucion(console);
-            VisitanteEvaluacion eval = new VisitanteEvaluacion(contexto);
-            programa.accept(eval);
+    ContextoEjecucion contexto = new ContextoEjecucion(console);
+    VisitanteEvaluacion eval = new VisitanteEvaluacion(contexto);
+    programa.accept(eval);
 
-
-        } catch (Exception ex) {
-            tablaErrores.agregarError(
-                ErrorTipo.SINTACTICO,
-                "Error fatal durante el análisis: " + ex.getMessage(),
-                1,
-                1
-            );
-            if (console != null) {
-    console.appendLine("ERROR: " + ex.getMessage());
+} catch (Exception ex) {
+    tablaErrores.agregarError(
+        ErrorTipo.SINTACTICO,
+        "Error fatal durante el análisis: " + ex.getMessage(),
+        1,
+        1
+    );
+} finally {
+    if (console != null && tablaErrores.tieneErrores()) {
+        imprimirErroresEnConsola(tablaErrores, console);
+    }
 }
 
-        }
     }
 
     private static class PreprocessResult {
@@ -168,6 +170,25 @@ public class Ejecutor {
         }
         return new PreprocessResult(sb.toString());
     }
+
+    private static void imprimirErroresEnConsola(TablaErrores tablaErrores, ConsolePanel console) {
+    console.appendLine("----------- Errores -----------");
+    for (ErrorInfo e : tablaErrores.getErrores()) {
+        String tipo = tipoBonito(e.getTipo());
+        console.appendLine("[" + tipo + "] Línea " + e.getLinea() + ", Col " + e.getColumna() + ": " + e.getDescripcion());
+    }
+}
+
+private static String tipoBonito(ErrorTipo tipo) {
+    if (tipo == null) return "Desconocido";
+    switch (tipo) {
+        case LEXICO: return "Léxico";
+        case SINTACTICO: return "Sintáctico";
+        case SEMANTICO: return "Semántico";
+        default: return "Desconocido";
+    }
+}
+
 
     private static String reemplazarInvalidosYReportar(String line, int lineNo, TablaErrores tablaErrores) {
 

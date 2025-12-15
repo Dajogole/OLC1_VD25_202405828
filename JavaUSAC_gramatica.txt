@@ -1,0 +1,213 @@
+start with programa;
+
+/* TERMINALES */
+terminal VAR, IF, ELSE, SWITCH, CASE, DEFAULT, WHILE, FOR, DO, BREAK, CONTINUE, PRINTLN;
+terminal INT, DOUBLE, BOOL, CHAR, STRING;
+terminal PLUS, MINUS, MULTIPLY, DIVIDE, MODULO, POW;
+terminal ASSIGN, EQ, NEQ, LT, GT, LE, GE;
+terminal AND, OR, NOT, XOR;
+terminal LPAREN, RPAREN, LBRACE, RBRACE, SEMICOLON, COLON, COMMA;
+
+terminal INTEGER_LITERAL;
+terminal DOUBLE_LITERAL;
+terminal BOOLEAN_LITERAL;
+terminal CHAR_LITERAL;
+terminal STRING_LITERAL;
+terminal IDENTIFIER;
+
+/* NO TERMINALES */
+non terminal programa;
+non terminal sentencias;
+non terminal sentencia;
+non terminal decl_var;
+non terminal asign_var;
+non terminal expresion;
+non terminal tipo;
+non terminal bloque;
+non terminal if_sentencia;
+non terminal switch_sentencia;
+non terminal cases;
+non terminal case_sent;
+non terminal default_sent;
+non terminal while_sentencia;
+non terminal for_sentencia;
+non terminal do_while_sentencia;
+non terminal println_sentencia;
+non terminal break_sentencia;
+non terminal continue_sentencia;
+non terminal incremento;
+non terminal actualizacion_for;
+
+non terminal expr_arit;
+non terminal expr_rel;
+non terminal expr_log;
+non terminal expr_casteo;
+non terminal expr_agrup;
+
+/* PRECEDENCIA */
+precedence left OR;
+precedence left XOR;
+precedence left AND;
+
+precedence left EQ, NEQ;
+precedence left LT, GT, LE, GE;
+
+precedence left PLUS, MINUS;
+precedence left MULTIPLY, DIVIDE, MODULO;
+
+precedence right POW;
+precedence right NOT;
+
+/* REGLAS */
+
+programa
+  ::= sentencias
+  ;
+
+sentencias
+  ::= sentencias sentencia
+   |
+  ;
+
+sentencia
+  ::= decl_var SEMICOLON
+   | incremento SEMICOLON
+   | asign_var SEMICOLON
+   | if_sentencia
+   | switch_sentencia
+   | while_sentencia
+   | for_sentencia
+   | do_while_sentencia
+   | break_sentencia SEMICOLON
+   | continue_sentencia SEMICOLON
+   | println_sentencia SEMICOLON
+   | bloque
+  ;
+
+bloque
+  ::= LBRACE sentencias RBRACE
+  ;
+
+decl_var
+  ::= VAR IDENTIFIER COLON tipo
+   | VAR IDENTIFIER COLON tipo ASSIGN expresion
+  ;
+
+tipo
+  ::= INT
+   | DOUBLE
+   | BOOL
+   | CHAR
+   | STRING
+  ;
+
+asign_var
+  ::= IDENTIFIER ASSIGN expresion
+  ;
+
+expresion
+  ::= IDENTIFIER
+   | INTEGER_LITERAL
+   | DOUBLE_LITERAL
+   | BOOLEAN_LITERAL
+   | CHAR_LITERAL
+   | STRING_LITERAL
+   | expr_arit
+   | expr_rel
+   | expr_log
+   | expr_casteo
+   | expr_agrup
+  ;
+
+expr_arit
+  ::= expresion PLUS expresion
+   | expresion MINUS expresion
+   | expresion MULTIPLY expresion
+   | expresion DIVIDE expresion
+   | expresion MODULO expresion
+   | expresion POW expresion
+   | MINUS expresion
+  ;
+
+expr_rel
+  ::= expresion LT expresion
+   | expresion GT expresion
+   | expresion LE expresion
+   | expresion GE expresion
+   | expresion EQ expresion
+   | expresion NEQ expresion
+  ;
+
+expr_log
+  ::= expresion AND expresion
+   | expresion OR expresion
+   | expresion XOR expresion
+   | NOT expresion
+  ;
+
+expr_casteo
+  ::= LPAREN tipo RPAREN expresion
+  ;
+
+expr_agrup
+  ::= LPAREN expresion RPAREN
+  ;
+
+if_sentencia
+  ::= IF LPAREN expresion RPAREN bloque
+   | IF LPAREN expresion RPAREN bloque ELSE bloque
+   | IF LPAREN expresion RPAREN bloque ELSE if_sentencia
+  ;
+
+switch_sentencia
+  ::= SWITCH LPAREN expresion RPAREN LBRACE cases RBRACE
+   | SWITCH LPAREN expresion RPAREN LBRACE cases default_sent RBRACE
+   | SWITCH LPAREN expresion RPAREN LBRACE default_sent RBRACE
+  ;
+
+cases
+  ::= cases case_sent
+   | case_sent
+  ;
+
+case_sent
+  ::= CASE expresion COLON sentencias
+  ;
+
+default_sent
+  ::= DEFAULT COLON sentencias
+  ;
+
+while_sentencia
+  ::= WHILE LPAREN expresion RPAREN bloque
+  ;
+
+for_sentencia
+  ::= FOR LPAREN asign_var SEMICOLON expresion SEMICOLON actualizacion_for RPAREN bloque
+   | FOR LPAREN decl_var SEMICOLON expresion SEMICOLON actualizacion_for RPAREN bloque
+  ;
+
+actualizacion_for
+  ::= asign_var
+   | incremento
+  ;
+
+incremento
+  ::= IDENTIFIER PLUS PLUS
+  ;
+
+do_while_sentencia
+  ::= DO bloque WHILE LPAREN expresion RPAREN SEMICOLON
+  ;
+
+println_sentencia
+  ::= PRINTLN LPAREN expresion RPAREN
+  ;
+
+break_sentencia
+  ::= BREAK
+  ;
+
+continue_sentencia
+  ::= CONTINUE
+  ;
