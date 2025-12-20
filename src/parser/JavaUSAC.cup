@@ -185,7 +185,40 @@ decl_var ::= VAR IDENTIFIER:i COLON tipo:t
     {: RESULT = new DeclaracionVariable(i, t, null, 0, 0); :}
     | VAR IDENTIFIER:i COLON tipo:t ASSIGN expresion:e
     {: RESULT = new DeclaracionVariable(i, t, e, 0, 0); :}
+
+    /*
+     * Recuperación específica: falta ':' entre el identificador y el tipo.
+     * Ejemplo erróneo:
+     *     var relacional1 bool = 12 + 5 * 3 >= 56 * 5 / 21;
+     * En vez de reportar "Syntax error", agregamos el mensaje solicitado:
+     *     "No se esperaba el componente bool"
+     */
+    | VAR IDENTIFIER:i tipo:t
+    {:
+        if (tablaErrores != null) {
+            tablaErrores.agregarError(
+                ErrorTipo.SINTACTICO,
+                "No se esperaba el componente " + t.toString(),
+                tleft,
+                tright
+            );
+        }
+        RESULT = new DeclaracionVariable(i, t, null, 0, 0);
+    :}
+    | VAR IDENTIFIER:i tipo:t ASSIGN expresion:e
+    {:
+        if (tablaErrores != null) {
+            tablaErrores.agregarError(
+                ErrorTipo.SINTACTICO,
+                "No se esperaba el componente " + t.toString(),
+                tleft,
+                tright
+            );
+        }
+        RESULT = new DeclaracionVariable(i, t, e, 0, 0);
+    :}
     ;
+
 
 tipo ::= INT
     {: RESULT = Tipo.INT; :}
@@ -199,126 +232,73 @@ tipo ::= INT
     {: RESULT = Tipo.STRING; :}
     ;
 
-asign_var ::= IDENTIFIER:i ASSIGN expresion:e
-    {: RESULT = new AsignacionVariable(i, e, 0, 0); :}
+asign_var ::= IDENTIFIER:i ASSIGN:a expresion:e
+    {: RESULT = new AsignacionVariable(i, e, ileft, iright); :}
     ;
 
 expresion ::= IDENTIFIER:i
-    {: RESULT = new Identificador(i, 0, 0); :}
+    {: RESULT = new Identificador(i, ileft, iright); :}
     | INTEGER_LITERAL:i
-    {: RESULT = new LiteralEntero(i, 0, 0); :}
+    {: RESULT = new LiteralEntero(i, ileft, iright); :}
     | DOUBLE_LITERAL:d
-    {: RESULT = new LiteralDouble(d, 0, 0); :}
+    {: RESULT = new LiteralDouble(d, dleft, dright); :}
     | BOOLEAN_LITERAL:b
-    {: RESULT = new LiteralBooleano(b, 0, 0); :}
+    {: RESULT = new LiteralBooleano(b, bleft, bright); :}
     | CHAR_LITERAL:c
-    {: RESULT = new LiteralChar(c, 0, 0); :}
+    {: RESULT = new LiteralChar(c, cleft, cright); :}
     | STRING_LITERAL:s
-    {: RESULT = new LiteralString(s, 0, 0); :}
-    | expr_arit:e
-    {: RESULT = e; :}
-    | expr_rel:e
-    {: RESULT = e; :}
-    | expr_log:e
-    {: RESULT = e; :}
-    | expr_casteo:e
-    {: RESULT = e; :}
-    | expr_agrup:e
-    {: RESULT = e; :}
-    ;
-
-expr_arit ::= expresion:e1 PLUS expresion:e2
-    {: RESULT = new ExpresionAritmetica(
-            e1, e2,
-            OperadorAritmetico.SUMA,
-            0, 0
-       ); :}
-    | expresion:e1 MINUS expresion:e2
-    {: RESULT = new ExpresionAritmetica(
-            e1, e2,
-            OperadorAritmetico.RESTA,
-            0, 0
-       ); :}
-    | expresion:e1 MULTIPLY expresion:e2
-    {: RESULT = new ExpresionAritmetica(
-            e1, e2,
-            OperadorAritmetico.MULTIPLICACION,
-            0, 0
-       ); :}
-    | expresion:e1 DIVIDE expresion:e2
-    {: RESULT = new ExpresionAritmetica(
-            e1, e2,
-            OperadorAritmetico.DIVISION,
-            0, 0
-       ); :}
-    | expresion:e1 MODULO expresion:e2
-    {: RESULT = new ExpresionAritmetica(
-            e1, e2,
-            OperadorAritmetico.MODULO,
-            0, 0
-       ); :}
-    | expresion:e1 POW expresion:e2
-    {: RESULT = new ExpresionAritmetica(
-            e1, e2,
-            OperadorAritmetico.POTENCIA,
-            0, 0
-       ); :}
-    | MINUS expresion:e
-    {: RESULT = new ExpresionAritmetica(
-            null, e,
-            OperadorAritmetico.NEGACION_UNARIA,
-            0, 0
-       ); :}
-    ;
-
-expr_rel ::= expresion:e1 LT expresion:e2
-    {: RESULT = new ExpresionRelacional(
-            e1, e2,
-            OperadorRelacional.MENOR,
-            0, 0
-       ); :}
-    | expresion:e1 GT expresion:e2
-    {: RESULT = new ExpresionRelacional(
-            e1, e2,
-            OperadorRelacional.MAYOR,
-            0, 0
-       ); :}
-    | expresion:e1 LE expresion:e2
-    {: RESULT = new ExpresionRelacional(
-            e1, e2,
-            OperadorRelacional.MENOR_IGUAL,
-            0, 0
-       ); :}
-    | expresion:e1 GE expresion:e2
-    {: RESULT = new ExpresionRelacional(
-            e1, e2,
-            OperadorRelacional.MAYOR_IGUAL,
-            0, 0
-       ); :}
-    | expresion:e1 EQ expresion:e2
-    {: RESULT = new ExpresionRelacional(
-            e1, e2,
-            OperadorRelacional.IGUAL,
-            0, 0
-       ); :}
-    | expresion:e1 NEQ expresion:e2
-    {: RESULT = new ExpresionRelacional(
-            e1, e2,
-            OperadorRelacional.DIFERENTE,
-            0, 0
-       ); :}
+    {: RESULT = new LiteralString(s, sleft, sright); :}
+    | expr_arit:e {: RESULT = e; :}
+    | expr_rel:e  {: RESULT = e; :}
+    | expr_log:e  {: RESULT = e; :}
+    | expr_casteo:e {: RESULT = e; :}
+    | expr_agrup:e {: RESULT = e; :}
     ;
 
 
-expr_log ::= expresion:e1 AND expresion:e2
-    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.AND, 0, 0); :}
-    | expresion:e1 OR expresion:e2
-    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.OR, 0, 0); :}
-    | expresion:e1 XOR expresion:e2
-    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.XOR, 0, 0); :}
-    | NOT expresion:e
-    {: RESULT = new ExpresionLogica(null, e, OperadorLogico.NOT, 0, 0); :}
+expr_arit ::= expresion:e1 PLUS:p expresion:e2
+    {: RESULT = new ExpresionAritmetica(e1, e2, OperadorAritmetico.SUMA, pleft, pright); :}
+    | expresion:e1 MINUS:m expresion:e2
+    {: RESULT = new ExpresionAritmetica(e1, e2, OperadorAritmetico.RESTA, mleft, mright); :}
+    | expresion:e1 MULTIPLY:mul expresion:e2
+    {: RESULT = new ExpresionAritmetica(e1, e2, OperadorAritmetico.MULTIPLICACION, mulleft, mulright); :}
+    | expresion:e1 DIVIDE:div expresion:e2
+    {: RESULT = new ExpresionAritmetica(e1, e2, OperadorAritmetico.DIVISION, divleft, divright); :}
+    | expresion:e1 MODULO:mod expresion:e2
+    {: RESULT = new ExpresionAritmetica(e1, e2, OperadorAritmetico.MODULO, modleft, modright); :}
+    | expresion:e1 POW:pow expresion:e2
+    {: RESULT = new ExpresionAritmetica(e1, e2, OperadorAritmetico.POTENCIA, powleft, powright); :}
+    | MINUS:m expresion:e
+    {: RESULT = new ExpresionAritmetica(null, e, OperadorAritmetico.NEGACION_UNARIA, mleft, mright); :}
     ;
+
+
+expr_rel ::= expresion:e1 LT:op expresion:e2
+    {: RESULT = new ExpresionRelacional(e1, e2, OperadorRelacional.MENOR, opleft, opright); :}
+    | expresion:e1 GT:op expresion:e2
+    {: RESULT = new ExpresionRelacional(e1, e2, OperadorRelacional.MAYOR, opleft, opright); :}
+    | expresion:e1 LE:op expresion:e2
+    {: RESULT = new ExpresionRelacional(e1, e2, OperadorRelacional.MENOR_IGUAL, opleft, opright); :}
+    | expresion:e1 GE:op expresion:e2
+    {: RESULT = new ExpresionRelacional(e1, e2, OperadorRelacional.MAYOR_IGUAL, opleft, opright); :}
+    | expresion:e1 EQ:op expresion:e2
+    {: RESULT = new ExpresionRelacional(e1, e2, OperadorRelacional.IGUAL, opleft, opright); :}
+    | expresion:e1 NEQ:op expresion:e2
+    {: RESULT = new ExpresionRelacional(e1, e2, OperadorRelacional.DIFERENTE, opleft, opright); :}
+    ;
+
+
+
+expr_log ::= expresion:e1 AND:op expresion:e2
+    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.AND, opleft, opright); :}
+    | expresion:e1 OR:op expresion:e2
+    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.OR, opleft, opright); :}
+    | expresion:e1 XOR:op expresion:e2
+    {: RESULT = new ExpresionLogica(e1, e2, OperadorLogico.XOR, opleft, opright); :}
+    | NOT:op expresion:e
+    {: RESULT = new ExpresionLogica(null, e, OperadorLogico.NOT, opleft, opright); :}
+    ;
+
 
 expr_casteo ::= LPAREN tipo:t RPAREN expresion:e
     {: RESULT = new ExpresionCasteo(t, e, 0, 0); :}

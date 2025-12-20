@@ -51,6 +51,15 @@ public class Ejecutor {
 
         PreprocessResult prep = preprocesarParaParseo(codigoOriginal, tablaErrores);
 
+        // Si ya hay errores lexicos, detenemos aqui para evitar cascadas de errores sintacticos.
+if (tablaErrores.tieneErroresLexicos()) {
+    if (console != null) {
+        imprimirErroresEnConsola(tablaErrores, console);
+    }
+    return;
+}
+
+
         try {
     Lexer lexer = new Lexer(new StringReader(prep.codigoProcesado));
     lexer.setTablaErrores(tablaErrores);
@@ -94,13 +103,18 @@ public class Ejecutor {
     programa.accept(eval);
 
 } catch (Exception ex) {
-    tablaErrores.agregarError(
-        ErrorTipo.SINTACTICO,
-        "Error fatal durante el análisis: " + ex.getMessage(),
-        1,
-        1
-    );
+    // Evitar errores duplicados/innecesarios: si ya se reportaron errores (lexicos o sintacticos),
+    // no agregamos un "fatal" adicional.
+    if (!tablaErrores.tieneErroresLexicos() && !tablaErrores.tieneErroresSintacticos()) {
+        tablaErrores.agregarError(
+            ErrorTipo.SINTACTICO,
+            "Error fatal durante el analisis: " + ex.getMessage(),
+            1,
+            1
+        );
+    }
 } finally {
+
     if (console != null && tablaErrores.tieneErrores()) {
         imprimirErroresEnConsola(tablaErrores, console);
     }

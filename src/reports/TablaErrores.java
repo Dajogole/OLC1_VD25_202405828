@@ -17,6 +17,22 @@ public class TablaErrores {
         return !errores.isEmpty();
     }
 
+    public boolean tieneErroresDeTipo(ErrorTipo tipo) {
+    if (tipo == null) return false;
+    for (ErrorInfo e : errores) {
+        if (tipo.equals(e.getTipo())) return true;
+    }
+    return false;
+}
+
+public boolean tieneErroresLexicos() {
+    return tieneErroresDeTipo(ErrorTipo.LEXICO);
+}
+
+public boolean tieneErroresSintacticos() {
+    return tieneErroresDeTipo(ErrorTipo.SINTACTICO);
+}
+
     public void limpiar() {
         errores.clear();
     }
