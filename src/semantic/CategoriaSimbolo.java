@@ -2,5 +2,9 @@ package semantic;
 
 public enum CategoriaSimbolo {
     VARIABLE,
-    CONSTANTE
+    CONSTANTE,
+    PARAMETRO,
+    FUNCION,
+    METODO,
+    ESTRUCTURA
 }
