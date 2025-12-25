@@ -21,11 +21,31 @@ import semantic.Simbolo;
 import ui.ConsolePanel;
 import reports.ErrorInfo;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import reports.AstDotGenerator;
+
+
 
 public class Ejecutor {
 
     private static TablaErrores ultimaTablaErrores;
     private static TablaSimbolos ultimaTablaSimbolos;
+
+
+    private static Path ultimoAstDotPath;
+private static Path ultimoAstPngPath;
+private static String ultimoAstError;
+
+public static Path getUltimoAstDotPath() { return ultimoAstDotPath; }
+public static Path getUltimoAstPngPath() { return ultimoAstPngPath; }
+public static String getUltimoAstError() { return ultimoAstError; }
+
 
     public static TablaErrores getUltimaTablaErrores() {
         return ultimaTablaErrores;
@@ -45,13 +65,18 @@ public class Ejecutor {
         ultimaTablaErrores = tablaErrores;
         ultimaTablaSimbolos = null;
 
+        ultimoAstDotPath = null;
+        ultimoAstPngPath = null;
+        ultimoAstError = null;
+
+
         final String codigoOriginal = (codigo == null) ? "" : codigo;
 
         SourceIndex sourceIndex = SourceIndex.build(codigoOriginal);
 
         PreprocessResult prep = preprocesarParaParseo(codigoOriginal, tablaErrores);
 
-        // Si ya hay errores lexicos, detenemos aqui para evitar cascadas de errores sintacticos.
+
 if (tablaErrores.tieneErroresLexicos()) {
     if (console != null) {
         imprimirErroresEnConsola(tablaErrores, console);
@@ -94,17 +119,26 @@ if (tablaErrores.tieneErroresLexicos()) {
 
     agregarErroresLengthManual(tablaErrores, sourceIndex);
 
+
+generarReporteAST(programa, console);
+
+
     if (tablaErrores.tieneErrores()) {
         return;
     }
 
     ContextoEjecucion contexto = new ContextoEjecucion(console);
-    VisitanteEvaluacion eval = new VisitanteEvaluacion(contexto);
-    programa.accept(eval);
+VisitanteEvaluacion eval = new VisitanteEvaluacion(contexto);
+programa.accept(eval);
+
+
+TablaSimbolos tablaEjecucion = contexto.getTablaSimbolos();
+completarUbicacionesSimbolos(tablaEjecucion, codigoOriginal);
+ultimaTablaSimbolos = tablaEjecucion;
+
 
 } catch (Exception ex) {
-    // Evitar errores duplicados/innecesarios: si ya se reportaron errores (lexicos o sintacticos),
-    // no agregamos un "fatal" adicional.
+    
     if (!tablaErrores.tieneErroresLexicos() && !tablaErrores.tieneErroresSintacticos()) {
         tablaErrores.agregarError(
             ErrorTipo.SINTACTICO,
@@ -128,62 +162,29 @@ if (tablaErrores.tieneErroresLexicos()) {
             this.codigoProcesado = codigoProcesado;
         }
     }
+private static PreprocessResult preprocesarParaParseo(String codigoOriginal, TablaErrores tablaErrores) {
 
-    private static PreprocessResult preprocesarParaParseo(String codigoOriginal, TablaErrores tablaErrores) {
+    String[] lines = codigoOriginal.split("\\r\\n|\\r|\\n", -1);
+    List<String> out = new ArrayList<>();
 
-        String[] lines = codigoOriginal.split("\\r\\n|\\r|\\n", -1);
-        List<String> out = new ArrayList<>(lines.length);
+    for (int i = 0; i < lines.length; i++) {
+        String s = lines[i];
 
-        Pattern pWrapper = Pattern.compile("^\\s*void\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\(\\s*\\)\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
-        Pattern pStart = Pattern.compile("^\\s*start\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\(\\s*\\)\\s*;\\s*$", Pattern.CASE_INSENSITIVE);
+        // Reporta caracteres inválidos, pero NO altera estructura del programa (Fase 2 requiere funciones/start)
+        s = reemplazarInvalidosYReportar(s, i + 1, tablaErrores);
 
-        boolean wrapperActivo = false;
-        int braceDepth = 0;
+        // Arreglos menores de formato
+       s = repararMasPuntoYComa(s, i + 1, tablaErrores);
+s = repararPrintlnParentesis(s, i + 1, tablaErrores);
 
-        for (int i = 0; i < lines.length; i++) {
-            int lineNo = i + 1;
-            String line = lines[i];
 
-            if (!wrapperActivo && pWrapper.matcher(line).matches()) {
-                wrapperActivo = true;
-                braceDepth = 1;
-                out.add("");
-                continue;
-            }
-
-            if (wrapperActivo) {
-                int delta = countCharOutsideStrings(line, '{') - countCharOutsideStrings(line, '}');
-                braceDepth += delta;
-                if (braceDepth <= 0) {
-                    wrapperActivo = false;
-                    out.add("");
-                    continue;
-                }
-            }
-
-            if (pStart.matcher(line).matches()) {
-                out.add("");
-                continue;
-            }
-
-            String s = reemplazarInvalidosYReportar(line, lineNo, tablaErrores);
-
-            s = repararMasPuntoYComa(s, lineNo, tablaErrores);
-
-            s = repararPrintlnParentesis(s, lineNo, tablaErrores);
-
-            s = reemplazarLengthPorCero(s);
-
-            out.add(s);
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < out.size(); i++) {
-            sb.append(out.get(i));
-            if (i < out.size() - 1) sb.append("\n");
-        }
-        return new PreprocessResult(sb.toString());
+        out.add(s);
     }
+
+    String codigoProcesado = String.join("\n", out);
+    return new PreprocessResult(codigoProcesado);
+}
+
 
     private static void imprimirErroresEnConsola(TablaErrores tablaErrores, ConsolePanel console) {
     console.appendLine("----------- Errores -----------");
@@ -475,6 +476,137 @@ private static String tipoBonito(ErrorTipo tipo) {
         }
     }
 
+
+private static void completarUbicacionesSimbolos(TablaSimbolos tablaSimbolos, String codigoOriginal) {
+    if (tablaSimbolos == null || codigoOriginal == null) return;
+
+    List<Simbolo> simbolos = tablaSimbolos.getSimbolos();
+    if (simbolos.isEmpty()) return;
+
+
+    Map<String, List<Simbolo>> idx = new HashMap<>();
+    for (Simbolo s : simbolos) {
+        String k = keySim(s.getIdentificador(), s.getAmbito(), s.getCategoria());
+        idx.computeIfAbsent(k, __ -> new ArrayList<>()).add(s);
+    }
+
+    String[] lines = codigoOriginal.split("\\r\\n|\\r|\\n", -1);
+
+
+    Pattern pFunc = Pattern.compile(
+            "^\\s*([a-zA-Z_][a-zA-Z0-9_<>\\[\\]]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\)",
+            Pattern.CASE_INSENSITIVE
+    );
+    Pattern pVar = Pattern.compile("\\bvar\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*:", Pattern.CASE_INSENSITIVE);
+    Pattern pParam = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_<>\\[\\]]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", Pattern.CASE_INSENSITIVE);
+    Pattern pTypedVar = Pattern.compile(
+        "^\\s*([a-zA-Z_][a-zA-Z0-9_<>\\[\\]]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=|;)",
+        Pattern.CASE_INSENSITIVE
+);
+
+
+    int braceDepth = 0;
+    String currentFunc = "Global";
+
+    for (int i = 0; i < lines.length; i++) {
+        String line = lines[i];
+        int lineNo = i + 1;
+
+
+        if (braceDepth == 0) {
+            Matcher mf = pFunc.matcher(line);
+            if (mf.find()) {
+                String nombre = mf.group(2);
+                currentFunc = nombre;
+
+                int colInicio = firstNonWsCol1(line);
+
+
+                update(idx, nombre, "Global", semantic.CategoriaSimbolo.METODO, lineNo, colInicio);
+                update(idx, nombre, "Global", semantic.CategoriaSimbolo.FUNCION, lineNo, colInicio);
+
+
+                int parenOpen = line.indexOf('(');
+                if (parenOpen >= 0) {
+                    String params = mf.group(3);
+                    Matcher mp = pParam.matcher(params);
+                    while (mp.find()) {
+                        String paramName = mp.group(2);
+                        int colParam = parenOpen + 1 + mp.start(2) + 1; 
+                        update(idx, paramName, nombre, semantic.CategoriaSimbolo.PARAMETRO, lineNo, colParam);
+                    }
+                }
+            }
+        }
+
+
+        Matcher mv = pVar.matcher(line);
+        while (mv.find()) {
+            String id = mv.group(1);
+            int colVar = mv.start() + 1; // inicio del "var"
+            String amb = (braceDepth == 0) ? "Global" : currentFunc;
+            update(idx, id, amb, semantic.CategoriaSimbolo.VARIABLE, lineNo, colVar);
+        }
+
+
+Matcher mtv = pTypedVar.matcher(line);
+if (mtv.find()) {
+    String id = mtv.group(2);
+    int colId = mtv.start(2) + 1; 
+    String amb = (braceDepth == 0) ? "Global" : currentFunc;
+
+    update(idx, id, amb, semantic.CategoriaSimbolo.VARIABLE, lineNo, colId);
+}
+
+
+
+        braceDepth += countChar(line, '{') - countChar(line, '}');
+        if (braceDepth == 0) {
+            currentFunc = "Global";
+        }
+    }
+}
+
+private static String keySim(String id, String ambito, semantic.CategoriaSimbolo cat) {
+    String a = (ambito == null) ? "" : ambito.toLowerCase();
+    String i = (id == null) ? "" : id.toLowerCase();
+    return i + "|" + a + "|" + (cat == null ? "" : cat.name());
+}
+
+private static void update(Map<String, List<Simbolo>> idx,
+                           String id,
+                           String ambito,
+                           semantic.CategoriaSimbolo cat,
+                           int line,
+                           int col) {
+    String k = keySim(id, ambito, cat);
+    List<Simbolo> lst = idx.get(k);
+    if (lst == null || lst.isEmpty()) return;
+
+
+    Simbolo s = lst.get(0);
+    if (line > 0) s.setLinea(line);
+    if (col > 0) s.setColumna(col);
+}
+
+private static int firstNonWsCol1(String line) {
+    if (line == null) return 1;
+    for (int i = 0; i < line.length(); i++) {
+        if (!Character.isWhitespace(line.charAt(i))) return i + 1;
+    }
+    return 1;
+}
+
+private static int countChar(String s, char c) {
+    if (s == null) return 0;
+    int n = 0;
+    for (int i = 0; i < s.length(); i++) {
+        if (s.charAt(i) == c) n++;
+    }
+    return n;
+}
+
+
     private static class PosDecl {
         final String idOriginal;
         final String idLower;
@@ -753,4 +885,81 @@ private static String tipoBonito(ErrorTipo tipo) {
             return msg.substring(a + 1, b);
         }
     }
+
+    private static void generarReporteAST(Programa programa, ConsolePanel console) {
+    try {
+        Path reportDir = Paths.get(System.getProperty("user.dir"), "reportes");
+        Files.createDirectories(reportDir);
+
+        Path dotPath = reportDir.resolve("ast.dot");
+        Path pngPath = reportDir.resolve("ast.png");
+
+        AstDotGenerator gen = new AstDotGenerator();
+        String dot = gen.generate(programa);
+
+        Files.write(dotPath, dot.getBytes(StandardCharsets.UTF_8));
+
+        ultimoAstDotPath = dotPath;
+        ultimoAstPngPath = null;
+        ultimoAstError = null;
+
+        // Ejecutar Graphviz (dot -Tpng ast.dot -o ast.png)
+        ProcessBuilder pb = new ProcessBuilder(
+                "dot",
+                "-Tpng",
+                dotPath.toAbsolutePath().toString(),
+                "-o",
+                pngPath.toAbsolutePath().toString()
+        );
+        pb.redirectErrorStream(true);
+
+        Process p = pb.start();
+        String output = readAll(p.getInputStream());
+        int exitCode = p.waitFor();
+
+        if (exitCode == 0 && Files.exists(pngPath)) {
+            ultimoAstPngPath = pngPath;
+
+            if (console != null) {
+                console.appendLine("[AST] Generado: " + pngPath.toAbsolutePath());
+            }
+        } else {
+            ultimoAstError = (output == null || output.isEmpty())
+                    ? ("Graphviz terminó con código " + exitCode)
+                    : output;
+
+            if (console != null) {
+                console.appendLine("[AST] No se pudo generar PNG. " + ultimoAstError);
+            }
+        }
+
+    } catch (IOException ex) {
+        ultimoAstError = "No se encontró el comando 'dot' (Graphviz). Instálalo y asegúrate de que esté en PATH.\n" + ex.getMessage();
+        if (console != null) {
+            console.appendLine("[AST] " + ultimoAstError);
+        }
+    } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        ultimoAstError = "La generación del AST fue interrumpida.";
+        if (console != null) {
+            console.appendLine("[AST] " + ultimoAstError);
+        }
+    } catch (Exception ex) {
+        ultimoAstError = "Error inesperado generando AST: " + ex.getMessage();
+        if (console != null) {
+            console.appendLine("[AST] " + ultimoAstError);
+        }
+    }
+}
+
+private static String readAll(InputStream in) throws IOException {
+    java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+    byte[] buffer = new byte[4096];
+    int n;
+    while ((n = in.read(buffer)) != -1) {
+        baos.write(buffer, 0, n);
+    }
+    return new String(baos.toByteArray(), StandardCharsets.UTF_8);
+}
+
 }
