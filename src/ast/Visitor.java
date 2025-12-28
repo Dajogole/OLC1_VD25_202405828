@@ -4,10 +4,10 @@ import ast.expresiones.*;
 import ast.sentencias.*;
 
 public interface Visitor<T> {
-    // Programa
+
     T visit(Programa programa);
-    
-    // Expresiones
+
+
     T visit(LiteralEntero expr);
     T visit(LiteralDouble expr);
     T visit(LiteralBooleano expr);
@@ -21,8 +21,14 @@ public interface Visitor<T> {
     T visit(ExpresionAgrupada expr);
     T visit(LlamadaFuncion expr);
 
-    
-    // Sentencias
+
+    default T visit(LiteralVector expr) { return null; }
+    default T visit(LiteralMatriz expr) { return null; }
+    default T visit(AccesoIndexado expr) { return null; }
+    default T visit(LlamadaMiembro expr) { return null; }
+    default T visit(NuevaLista expr) { return null; }
+
+
     T visit(BloqueSentencias stmt);
     T visit(DeclaracionVariable stmt);
     T visit(AsignacionVariable stmt);
@@ -36,4 +42,12 @@ public interface Visitor<T> {
     T visit(BreakSentencia stmt);
     T visit(ContinueSentencia stmt);
     T visit(PrintlnSentencia stmt);
+
+   
+    default T visit(DeclaracionFuncion stmt) { return null; }
+    default T visit(ReturnSentencia stmt) { return null; }
+    default T visit(StartSentencia stmt) { return null; }
+    default T visit(SentenciaExpresion stmt) { return null; }
+    default T visit(IncDecSentencia stmt) { return null; }
+    default T visit(AsignacionIndexada stmt) { return null; }
 }
