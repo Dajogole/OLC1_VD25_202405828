@@ -1,0 +1,398 @@
+
+/* ===========================
+   TERMINALES (TOKENS)
+   =========================== */
+
+/* Fase 1 keywords */
+terminal VAR, IF, ELSE, SWITCH, CASE, DEFAULT, WHILE, FOR, DO, BREAK, CONTINUE, PRINTLN;
+
+/* Fase 2 keywords */
+terminal VOID, RETURN, START;
+terminal LIST, NEW, APPEND, REMOVE;
+
+/* Native functions */
+terminal ROUND, LENGTH, TOSTRING, FIND, START_WITH;
+
+/* Types */
+terminal INT, DOUBLE, BOOL, CHAR, STRING;
+
+/* Operators */
+terminal PLUS, MINUS, MULTIPLY, DIVIDE, MODULO, POW;
+terminal INCREMENT, DECREMENT;
+
+/* Assignment and comparison */
+terminal ASSIGN, EQ, NEQ, LT, GT, LE, GE;
+
+/* Logical operators */
+terminal AND, OR, NOT, XOR;
+
+/* Grouping and punctuation */
+terminal LPAREN, RPAREN, LBRACE, RBRACE, SEMICOLON, COLON, COMMA;
+terminal LBRACKET, RBRACKET, DOT;
+
+/* Literals */
+terminal Integer   INTEGER_LITERAL;
+terminal Double    DOUBLE_LITERAL;
+terminal Boolean   BOOLEAN_LITERAL;
+terminal Character CHAR_LITERAL;
+terminal String    STRING_LITERAL, IDENTIFIER;
+
+
+/* ===========================
+   NO TERMINALES
+   =========================== */
+
+non terminal programa;
+non terminal sentencias;
+non terminal sentencia;
+
+non terminal decl_var;
+non terminal asign_var;
+
+non terminal expresion;
+non terminal valor;
+non terminal tipo;
+non terminal tipo_base;
+
+non terminal bloque;
+non terminal if_sentencia;
+non terminal switch_sentencia;
+non terminal cases;
+non terminal case_sent;
+non terminal default_sent;
+non terminal while_sentencia;
+non terminal for_sentencia;
+non terminal do_while_sentencia;
+non terminal println_sentencia;
+non terminal break_sentencia;
+non terminal continue_sentencia;
+
+non terminal incremento;
+non terminal actualizacion_for;
+
+non terminal expr_arit;
+non terminal expr_rel;
+non terminal expr_log;
+non terminal expr_casteo;
+non terminal expr_agrup;
+
+/* Fase 2 */
+non terminal decl_funcion;
+non terminal parametros_opt;
+non terminal parametros;
+non terminal parametro;
+
+non terminal args_opt;
+non terminal args;
+
+non terminal llamada_funcion;
+non terminal llamada_miembro;
+non terminal nombre_funcion;
+non terminal nombre_metodo;
+
+non terminal vector_literal;
+non terminal matriz_literal;
+non terminal lista_valores_opt;
+non terminal lista_valores;
+non terminal filas_matriz;
+
+
+/* ===========================
+   PRECEDENCIA Y ASOCIATIVIDAD
+   =========================== */
+
+precedence left OR;
+precedence left XOR;
+precedence left AND;
+
+precedence left EQ, NEQ;
+precedence left LT, GT, LE, GE;
+
+precedence left PLUS, MINUS;
+precedence left MULTIPLY, DIVIDE, MODULO;
+
+precedence right POW;
+precedence right NOT;
+
+precedence left DOT;
+precedence left LBRACKET;
+
+
+/* ===========================
+   REGLAS
+   =========================== */
+
+programa
+    ::= sentencias
+    ;
+
+sentencias
+    ::= sentencias sentencia
+    | /* vacío */
+    ;
+
+sentencia
+    ::= decl_var SEMICOLON
+    | tipo IDENTIFIER ASSIGN valor SEMICOLON
+    | LIST LT tipo_base GT IDENTIFIER ASSIGN NEW LIST LPAREN RPAREN SEMICOLON
+
+    | IDENTIFIER LBRACKET expresion RBRACKET ASSIGN valor SEMICOLON
+    | IDENTIFIER LBRACKET expresion RBRACKET LBRACKET expresion RBRACKET ASSIGN valor SEMICOLON
+
+    | IDENTIFIER INCREMENT SEMICOLON
+    | IDENTIFIER DECREMENT SEMICOLON
+    | IDENTIFIER LBRACKET expresion RBRACKET INCREMENT SEMICOLON
+    | IDENTIFIER LBRACKET expresion RBRACKET DECREMENT SEMICOLON
+
+    | RETURN SEMICOLON
+    | RETURN valor SEMICOLON
+
+    | START IDENTIFIER LPAREN args_opt RPAREN SEMICOLON
+
+    | decl_funcion
+
+    | llamada_funcion SEMICOLON
+    | llamada_miembro SEMICOLON
+
+    | asign_var SEMICOLON
+    | if_sentencia
+    | switch_sentencia
+    | while_sentencia
+    | for_sentencia
+    | do_while_sentencia
+    | break_sentencia SEMICOLON
+    | continue_sentencia SEMICOLON
+    | println_sentencia SEMICOLON
+    | bloque
+    ;
+
+bloque
+    ::= LBRACE sentencias RBRACE
+    ;
+
+decl_var
+    ::= VAR IDENTIFIER COLON tipo
+    | VAR IDENTIFIER COLON tipo ASSIGN valor
+    | VAR IDENTIFIER tipo
+    | VAR IDENTIFIER tipo ASSIGN valor
+    ;
+
+tipo
+    ::= tipo_base
+    | tipo_base LBRACKET RBRACKET
+    | tipo_base LBRACKET RBRACKET LBRACKET RBRACKET
+    | LIST LT tipo_base GT
+    ;
+
+tipo_base
+    ::= INT
+    | DOUBLE
+    | BOOL
+    | CHAR
+    | STRING
+    ;
+
+asign_var
+    ::= IDENTIFIER ASSIGN valor
+    ;
+
+valor
+    ::= expresion
+    | vector_literal
+    | matriz_literal
+    ;
+
+expresion
+    ::= IDENTIFIER
+    | INTEGER_LITERAL
+    | DOUBLE_LITERAL
+    | BOOLEAN_LITERAL
+    | CHAR_LITERAL
+    | STRING_LITERAL
+
+    | expr_arit
+    | expr_rel
+    | expr_log
+    | expr_casteo
+    | expr_agrup
+
+    | llamada_miembro
+    | llamada_funcion
+
+    | NEW LIST LT tipo_base GT LPAREN RPAREN
+    | NEW LIST LPAREN RPAREN
+
+    | expresion LBRACKET expresion RBRACKET %prec LBRACKET
+    | expresion LBRACKET expresion RBRACKET LBRACKET expresion RBRACKET %prec LBRACKET
+    ;
+
+expr_arit
+    ::= expresion PLUS expresion
+    | expresion MINUS expresion
+    | expresion MULTIPLY expresion
+    | expresion DIVIDE expresion
+    | expresion MODULO expresion
+    | expresion POW expresion
+    | MINUS expresion
+    ;
+
+expr_rel
+    ::= expresion LT expresion
+    | expresion GT expresion
+    | expresion LE expresion
+    | expresion GE expresion
+    | expresion EQ expresion
+    | expresion NEQ expresion
+    ;
+
+expr_log
+    ::= expresion AND expresion
+    | expresion OR expresion
+    | expresion XOR expresion
+    | NOT expresion
+    ;
+
+expr_casteo
+    ::= LPAREN tipo RPAREN expresion
+    ;
+
+expr_agrup
+    ::= LPAREN expresion RPAREN
+    ;
+
+if_sentencia
+    ::= IF LPAREN expresion RPAREN bloque
+    | IF LPAREN expresion RPAREN bloque ELSE bloque
+    | IF LPAREN expresion RPAREN bloque ELSE if_sentencia
+    ;
+
+switch_sentencia
+    ::= SWITCH LPAREN expresion RPAREN LBRACE cases RBRACE
+    | SWITCH LPAREN expresion RPAREN LBRACE cases default_sent RBRACE
+    | SWITCH LPAREN expresion RPAREN LBRACE default_sent RBRACE
+    ;
+
+cases
+    ::= cases case_sent
+    | case_sent
+    ;
+
+case_sent
+    ::= CASE expresion COLON sentencias
+    ;
+
+default_sent
+    ::= DEFAULT COLON sentencias
+    ;
+
+while_sentencia
+    ::= WHILE LPAREN expresion RPAREN bloque
+    ;
+
+for_sentencia
+    ::= FOR LPAREN asign_var SEMICOLON expresion SEMICOLON actualizacion_for RPAREN bloque
+    | FOR LPAREN decl_var SEMICOLON expresion SEMICOLON actualizacion_for RPAREN bloque
+    ;
+
+actualizacion_for
+    ::= asign_var
+    | incremento
+    ;
+
+incremento
+    ::= IDENTIFIER INCREMENT
+    | IDENTIFIER DECREMENT
+    ;
+
+do_while_sentencia
+    ::= DO bloque WHILE LPAREN expresion RPAREN SEMICOLON
+    ;
+
+println_sentencia
+    ::= PRINTLN LPAREN valor RPAREN
+    ;
+
+break_sentencia
+    ::= BREAK
+    ;
+
+continue_sentencia
+    ::= CONTINUE
+    ;
+
+decl_funcion
+    ::= VOID IDENTIFIER LPAREN parametros_opt RPAREN bloque
+    | tipo IDENTIFIER LPAREN parametros_opt RPAREN bloque
+    ;
+
+parametros_opt
+    ::= parametros
+    | /* empty */
+    ;
+
+parametros
+    ::= parametros COMMA parametro
+    | parametro
+    ;
+
+parametro
+    ::= tipo IDENTIFIER
+    ;
+
+args_opt
+    ::= args
+    | /* empty */
+    ;
+
+args
+    ::= args COMMA valor
+    | valor
+    ;
+
+nombre_funcion
+    ::= IDENTIFIER
+    | ROUND
+    | LENGTH
+    | TOSTRING
+    | FIND
+    | START_WITH
+    ;
+
+llamada_funcion
+    ::= nombre_funcion LPAREN args_opt RPAREN
+    ;
+
+nombre_metodo
+    ::= IDENTIFIER
+    | APPEND
+    | REMOVE
+    | FIND
+    | START_WITH
+    ;
+
+llamada_miembro
+    ::= expresion DOT nombre_metodo LPAREN args_opt RPAREN
+    ;
+
+vector_literal
+    ::= LBRACKET lista_valores_opt RBRACKET
+    ;
+
+lista_valores_opt
+    ::= lista_valores
+    | /* empty */
+    ;
+
+lista_valores
+    ::= lista_valores COMMA expresion
+    | expresion
+    ;
+
+filas_matriz
+    ::= filas_matriz COMMA vector_literal
+    | vector_literal
+    ;
+
+matriz_literal
+    ::= LBRACKET filas_matriz RBRACKET
+    ;
