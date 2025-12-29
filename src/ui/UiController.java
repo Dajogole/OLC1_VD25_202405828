@@ -244,5 +244,21 @@ public class UiController {
     dialog.setVisible(true);
 }
 
+public void mostrarReporteAST() {
+    Path dot = Ejecutor.getUltimoAstDotPath();
+    Path png = Ejecutor.getUltimoAstPngPath();
+    String err = Ejecutor.getUltimoAstError();
+
+    if (dot == null) {
+        mainWindow.showInfoDialog(
+                "Primero ejecuta un archivo para poder generar el reporte AST."
+        );
+        return;
+    }
+
+    AstReportDialog dialog = new AstReportDialog(mainWindow, png, dot, err);
+    dialog.setVisible(true);
+}
+
 
 }

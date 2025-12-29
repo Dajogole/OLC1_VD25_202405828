@@ -74,6 +74,12 @@ public class MainWindow extends JFrame {
         JMenu menuReportes = new JMenu("Reportes");
         JMenuItem itemReporteErrores = new JMenuItem("Reporte de Errores");
         JMenuItem itemReporteSimbolos = new JMenuItem("Reporte Tabla de Símbolos");
+        JMenuItem itemReporteAst = new JMenuItem("Reporte AST");
+
+itemReporteAst.addActionListener(e -> controller.mostrarReporteAST());
+
+menuReportes.add(itemReporteAst);
+
 
         itemReporteErrores.addActionListener(e -> controller.mostrarReporteErrores());
         itemReporteSimbolos.addActionListener(e -> controller.mostrarReporteTablaSimbolos());
