@@ -1,13 +1,3 @@
-/* =========================================================
-   GRAMÁTICA PURA (sin package/imports, sin action/parser code,
-   sin tipos Java en terminales/no-terminales, y sin acciones {: :})
-   Basada 1:1 en tu .cup (solo estructura de gramática + precedencias)
-   ========================================================= */
-
-/* ===========================
-   TERMINALES (TOKENS)
-   =========================== */
-
 /* Fase 1 keywords */
 terminal VAR, IF, ELSE, SWITCH, CASE, DEFAULT, WHILE, FOR, DO, BREAK, CONTINUE, PRINTLN;
 
