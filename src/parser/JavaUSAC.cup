@@ -12,14 +12,8 @@ import java.util.List;
 import java.util.ArrayList;
 
 action code {:
-    // Código de acción para reportar errores
-    public void report_error(String message, Object info) {
-        System.err.println("Error sintáctico: " + message + " en línea " + 0 + ", columna " + 0);
-    }
-
-    public void report_fatal_error(String message, Object info) {
-        System.err.println("Error sintáctico fatal: " + message + " en línea " + 0 + ", columna " + 0);
-    }
+    // (Vacío a propósito)
+    // NOTA: report_error/report_fatal_error se implementan en "parser code".
 :}
 
 parser code {:
@@ -112,6 +106,7 @@ terminal String STRING_LITERAL, IDENTIFIER;
 non terminal Programa programa;
 non terminal List<Sentencia> sentencias;
 non terminal Sentencia sentencia;
+non terminal Sentencia sentencia_simple;
 
 non terminal DeclaracionVariable decl_var;
 non terminal AsignacionVariable asign_var;
@@ -290,6 +285,33 @@ sentencia ::=
         {: RESULT = b; :}
     ;
 
+    /* ===========================
+   SENTENCIA SIMPLE (para recuperación de errores)
+   =========================== */
+
+sentencia_simple ::=
+      println_sentencia:p SEMICOLON
+        {: RESULT = p; :}
+    | asign_var:a SEMICOLON
+        {: RESULT = a; :}
+    | decl_var:d SEMICOLON
+        {: RESULT = d; :}
+    | llamada_funcion:lf SEMICOLON
+        {: RESULT = new SentenciaExpresion(lf,0,0); :}
+    | llamada_miembro:lm SEMICOLON
+        {: RESULT = new SentenciaExpresion(lm,0,0); :}
+    | break_sentencia:b SEMICOLON
+        {: RESULT = b; :}
+    | continue_sentencia:c SEMICOLON
+        {: RESULT = c; :}
+    | RETURN SEMICOLON
+        {: RESULT = new ReturnSentencia(null,0,0); :}
+    | RETURN valor:e SEMICOLON
+        {: RESULT = new ReturnSentencia(e,0,0); :}
+    ;
+
+
+
 bloque ::= LBRACE sentencias:s RBRACE
     {: RESULT = new BloqueSentencias(s, 0, 0); :}
     ;
@@ -462,6 +484,34 @@ expr_agrup ::= LPAREN expresion:e RPAREN
 
 if_sentencia ::= IF LPAREN expresion:e RPAREN bloque:b
     {: RESULT = new IfSentencia(e, b, null, null, 0, 0); :}
+
+    /* Recuperación: if sin llaves -> lo envolvemos en bloque y reportamos error */
+    | IF LPAREN expresion:e RPAREN sentencia_simple:s
+    {:
+        if (tablaErrores != null) {
+            int linea = 1;
+            int columna = 1;
+            if (e != null) {
+                // Preferimos la ubicación del lado izquierdo (p.ej. var1)
+                linea = e.getLine();
+                columna = e.getColumn();
+                if (e instanceof ExpresionRelacional) {
+                    ExpresionRelacional r = (ExpresionRelacional) e;
+                    if (r.getIzquierda() != null) {
+                        linea = r.getIzquierda().getLine();
+                        columna = r.getIzquierda().getColumn();
+                    }
+                }
+            }
+            tablaErrores.agregarError(ErrorTipo.SINTACTICO, "Se esperaba '{'", linea, columna);
+        }
+
+        List<Sentencia> lista = new ArrayList<Sentencia>();
+        if (s != null) lista.add(s);
+        BloqueSentencias bfix = new BloqueSentencias(lista, 0, 0);
+        RESULT = new IfSentencia(e, bfix, null, null, 0, 0);
+    :}
+
     | IF LPAREN expresion:e RPAREN bloque:b1 ELSE bloque:b2
     {: RESULT = new IfSentencia(e, b1, b2, null, 0, 0); :}
     | IF LPAREN expresion:e RPAREN bloque:b1 ELSE if_sentencia:i

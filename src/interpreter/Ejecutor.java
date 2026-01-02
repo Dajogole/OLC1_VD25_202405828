@@ -682,6 +682,10 @@ private static int countChar(String s, char c) {
         final List<OpOcc> stringMinusOps = new ArrayList<>();
         final List<CastOcc> casts = new ArrayList<>();
         final List<LengthCall> lengthCalls = new ArrayList<>();
+        final List<int[]> returns = new ArrayList<>();
+
+        private int idxReturns = 0;
+
 
         private int idxBoolPlus = 0;
         private int idxStrMinus = 0;
@@ -698,6 +702,7 @@ private static int countChar(String s, char c) {
             Pattern pBoolPlus = Pattern.compile("(?i)\\b(true|false)\\b\\s*\\+\\s*([0-9]+(\\.[0-9]+)?)");
             Pattern pStrMinus = Pattern.compile("\"[^\"]*\"\\s*-\\s*\"[^\"]*\"");
             Pattern pLength = Pattern.compile("(?i)\\blength\\s*\\(\\s*([^\\)]*?)\\s*\\)");
+            Pattern pReturn = Pattern.compile("(?i)\\breturn\\b");
 
             Pattern pCastBoolNum = Pattern.compile("(?i)\\(\\s*bool\\s*\\)\\s*([0-9]+(\\.[0-9]+)?)");
 
@@ -776,6 +781,12 @@ private static int countChar(String s, char c) {
                         colError = (colCastBool >= 0) ? (colCastBool + 1) : 1;
                     }
                     idx.casts.add(new CastOcc(lineNo, colError, mc.group(0).trim()));
+                }
+
+                Matcher mr = pReturn.matcher(line);
+                while (mr.find()) {
+                    int colReturn = mr.start() + 1; // columna donde empieza "return"
+                    idx.returns.add(new int[] { lineNo, colReturn });
                 }
             }
 
@@ -869,6 +880,17 @@ private static int countChar(String s, char c) {
                     }
                 }
             }
+
+            if (lower.contains("tipo incompatible en return")
+        || lower.contains("no puede retornar un valor")
+        || lower.contains("debe retornar un valor")) {
+
+    int[] p = (idxReturns < returns.size()) ? returns.get(idxReturns++) : null;
+    if (p != null) {
+        return new MappedSemantic(msg, p[0], p[1]);
+    }
+}
+
 
             int ln = e.getLinea() > 0 ? e.getLinea() : 1;
             int col = e.getColumna() > 0 ? e.getColumna() : 1;

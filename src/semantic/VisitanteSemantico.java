@@ -289,13 +289,72 @@ public class VisitanteSemantico implements Visitor<ResultadoExpresion> {
     }
 
     @Override
-    public ResultadoExpresion visit(ExpresionRelacional expr) {
-        ResultadoExpresion izq = expr.getIzquierda().accept(this);
-        ResultadoExpresion der = expr.getDerecha().accept(this);
-        if (izq.tieneError()) return izq;
-        if (der.tieneError()) return der;
-        return new ResultadoExpresion(Tipo.BOOL, null);
+public ResultadoExpresion visit(ExpresionRelacional expr) {
+    ResultadoExpresion izq = expr.getIzquierda().accept(this);
+    ResultadoExpresion der = expr.getDerecha().accept(this);
+
+    Tipo tIzq = (izq == null) ? Tipo.ERROR : izq.getTipo();
+    Tipo tDer = (der == null) ? Tipo.ERROR : der.getTipo();
+
+    // Mapeo de operador a símbolo textual
+    String op;
+    switch (expr.getOperador()) {
+        case IGUAL: op = "=="; break;
+        case DIFERENTE: op = "!="; break;
+        case MENOR: op = "<"; break;
+        case MAYOR: op = ">"; break;
+        case MENOR_IGUAL: op = "<="; break;
+        case MAYOR_IGUAL: op = ">="; break;
+        default: op = "?"; break;
     }
+
+    // Ubicación: preferimos la del lado izquierdo si existe (p.ej. var1)
+    int linea = expr.getLine();
+    int columna = expr.getColumn();
+    if (expr.getIzquierda() != null) {
+        linea = expr.getIzquierda().getLine();
+        columna = expr.getIzquierda().getColumn();
+    }
+
+    // Si alguno ya es ERROR (p.ej. variable no declarada),
+    // igualmente reportamos la incompatibilidad del operador.
+    if (tIzq == Tipo.ERROR || tDer == Tipo.ERROR) {
+        agregarError(
+            "No se puede aplicar '" + op + "' a tipos incompatibles (" + tIzq + " y " + tDer + ")",
+            linea,
+            columna
+        );
+        return new ResultadoExpresion(Tipo.ERROR, null);
+    }
+
+    boolean compatible = false;
+    switch (expr.getOperador()) {
+        case IGUAL:
+        case DIFERENTE:
+            // Igualdad/desigualdad: permitir mismos tipos o ambos numéricos
+            compatible = (tIzq == tDer) || (tIzq.isNumeric() && tDer.isNumeric());
+            break;
+        case MENOR:
+        case MAYOR:
+        case MENOR_IGUAL:
+        case MAYOR_IGUAL:
+            // Orden: solo numéricos
+            compatible = tIzq.isNumeric() && tDer.isNumeric();
+            break;
+    }
+
+    if (!compatible) {
+        agregarError(
+            "No se puede aplicar '" + op + "' a tipos incompatibles (" + tIzq + " y " + tDer + ")",
+            linea,
+            columna
+        );
+        return new ResultadoExpresion(Tipo.ERROR, null);
+    }
+
+    return new ResultadoExpresion(Tipo.BOOL, null);
+}
+
 
     @Override
     public ResultadoExpresion visit(ExpresionLogica expr) {

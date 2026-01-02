@@ -1,3 +1,8 @@
+/* =========================================================
+   GRAMÁTICA PURA (sin package/imports, sin action/parser code,
+   sin tipos Java en terminales/no-terminales, y sin acciones {: :})
+   Basada 1:1 en tu .cup (solo estructura de gramática + precedencias)
+   ========================================================= */
 
 /* ===========================
    TERMINALES (TOKENS)
@@ -10,7 +15,7 @@ terminal VAR, IF, ELSE, SWITCH, CASE, DEFAULT, WHILE, FOR, DO, BREAK, CONTINUE, 
 terminal VOID, RETURN, START;
 terminal LIST, NEW, APPEND, REMOVE;
 
-/* Native functions */
+/* Native functions keywords */
 terminal ROUND, LENGTH, TOSTRING, FIND, START_WITH;
 
 /* Types */
@@ -30,21 +35,19 @@ terminal AND, OR, NOT, XOR;
 terminal LPAREN, RPAREN, LBRACE, RBRACE, SEMICOLON, COLON, COMMA;
 terminal LBRACKET, RBRACKET, DOT;
 
-/* Literals */
-terminal Integer   INTEGER_LITERAL;
-terminal Double    DOUBLE_LITERAL;
-terminal Boolean   BOOLEAN_LITERAL;
-terminal Character CHAR_LITERAL;
-terminal String    STRING_LITERAL, IDENTIFIER;
+/* Literals + identifiers */
+terminal INTEGER_LITERAL, DOUBLE_LITERAL, BOOLEAN_LITERAL, CHAR_LITERAL;
+terminal STRING_LITERAL, IDENTIFIER;
 
 
 /* ===========================
-   NO TERMINALES
+   NO TERMINALES (sin tipos Java)
    =========================== */
 
 non terminal programa;
 non terminal sentencias;
 non terminal sentencia;
+non terminal sentencia_simple;
 
 non terminal decl_var;
 non terminal asign_var;
@@ -76,7 +79,7 @@ non terminal expr_log;
 non terminal expr_casteo;
 non terminal expr_agrup;
 
-/* Fase 2 */
+/* --------- FASE 2: no-terminales --------- */
 non terminal decl_funcion;
 non terminal parametros_opt;
 non terminal parametros;
@@ -101,59 +104,89 @@ non terminal filas_matriz;
    PRECEDENCIA Y ASOCIATIVIDAD
    =========================== */
 
+/* Operadores lógicos de menor a mayor prioridad */
 precedence left OR;
 precedence left XOR;
 precedence left AND;
 
+/* Comparaciones */
 precedence left EQ, NEQ;
 precedence left LT, GT, LE, GE;
 
+/* Aritméticos */
 precedence left PLUS, MINUS;
 precedence left MULTIPLY, DIVIDE, MODULO;
 
+/* Potencia: asociativa a la derecha */
 precedence right POW;
+
+/* Not lógico (unario) con mayor precedencia */
 precedence right NOT;
 
+/* Postfix (mayor prioridad) */
 precedence left DOT;
 precedence left LBRACKET;
+
+
+/* ===========================
+   SÍMBOLO INICIAL
+   =========================== */
+
+start with programa;
 
 
 /* ===========================
    REGLAS
    =========================== */
 
-programa
-    ::= sentencias
+programa ::=
+    sentencias
     ;
 
-sentencias
-    ::= sentencias sentencia
-    | /* vacío */
+sentencias ::=
+      sentencias sentencia
+    | /* empty */
     ;
 
-sentencia
-    ::= decl_var SEMICOLON
+
+/* ===========================
+   SENTENCIAS (REEMPLAZO COMPLETO)
+   =========================== */
+
+sentencia ::=
+      decl_var SEMICOLON
+
+    /* Declaración tipada sin VAR: tipo id = valor; */
     | tipo IDENTIFIER ASSIGN valor SEMICOLON
+
+    /* Declaración List<T> id = new List(); */
     | LIST LT tipo_base GT IDENTIFIER ASSIGN NEW LIST LPAREN RPAREN SEMICOLON
 
+    /* Asignación indexada vector/lista/matriz */
     | IDENTIFIER LBRACKET expresion RBRACKET ASSIGN valor SEMICOLON
     | IDENTIFIER LBRACKET expresion RBRACKET LBRACKET expresion RBRACKET ASSIGN valor SEMICOLON
 
+    /* ++ y -- como sentencia (id o indexado) */
     | IDENTIFIER INCREMENT SEMICOLON
     | IDENTIFIER DECREMENT SEMICOLON
     | IDENTIFIER LBRACKET expresion RBRACKET INCREMENT SEMICOLON
     | IDENTIFIER LBRACKET expresion RBRACKET DECREMENT SEMICOLON
 
+    /* return; y return valor; */
     | RETURN SEMICOLON
     | RETURN valor SEMICOLON
 
+    /* start id(); / start id(args); */
     | START IDENTIFIER LPAREN args_opt RPAREN SEMICOLON
 
+    /* Declaración funciones y métodos */
     | decl_funcion
 
+    /* Llamadas como sentencia (función o método/miembro) */
     | llamada_funcion SEMICOLON
     | llamada_miembro SEMICOLON
 
+    /* Fase 1 intacto */
     | asign_var SEMICOLON
     | if_sentencia
     | switch_sentencia
@@ -166,44 +199,81 @@ sentencia
     | bloque
     ;
 
-bloque
-    ::= LBRACE sentencias RBRACE
+
+/* ===========================
+   SENTENCIA SIMPLE (para recuperación de errores)
+   =========================== */
+
+sentencia_simple ::=
+      println_sentencia SEMICOLON
+    | asign_var SEMICOLON
+    | decl_var SEMICOLON
+    | llamada_funcion SEMICOLON
+    | llamada_miembro SEMICOLON
+    | break_sentencia SEMICOLON
+    | continue_sentencia SEMICOLON
+    | RETURN SEMICOLON
+    | RETURN valor SEMICOLON
     ;
 
-decl_var
-    ::= VAR IDENTIFIER COLON tipo
+
+bloque ::=
+    LBRACE sentencias RBRACE
+    ;
+
+
+decl_var ::=
+      VAR IDENTIFIER COLON tipo
     | VAR IDENTIFIER COLON tipo ASSIGN valor
+
+    /* Recuperación específica: falta ':' */
     | VAR IDENTIFIER tipo
     | VAR IDENTIFIER tipo ASSIGN valor
     ;
 
-tipo
-    ::= tipo_base
+
+/* ===========================
+   TIPOS (Fase 2)
+   =========================== */
+
+tipo ::=
+      tipo_base
     | tipo_base LBRACKET RBRACKET
     | tipo_base LBRACKET RBRACKET LBRACKET RBRACKET
     | LIST LT tipo_base GT
     ;
 
-tipo_base
-    ::= INT
+tipo_base ::=
+      INT
     | DOUBLE
     | BOOL
     | CHAR
     | STRING
     ;
 
-asign_var
-    ::= IDENTIFIER ASSIGN valor
+
+asign_var ::=
+    IDENTIFIER ASSIGN valor
     ;
 
-valor
-    ::= expresion
+
+/* ===========================
+   VALORES
+   =========================== */
+
+valor ::=
+      expresion
     | vector_literal
     | matriz_literal
     ;
 
-expresion
-    ::= IDENTIFIER
+
+/* ===========================
+   EXPRESIONES
+   =========================== */
+
+expresion ::=
+      IDENTIFIER
     | INTEGER_LITERAL
     | DOUBLE_LITERAL
     | BOOLEAN_LITERAL
@@ -216,18 +286,22 @@ expresion
     | expr_casteo
     | expr_agrup
 
+    /* --------- Fase 2: llamadas --------- */
     | llamada_miembro
     | llamada_funcion
 
     | NEW LIST LT tipo_base GT LPAREN RPAREN
     | NEW LIST LPAREN RPAREN
 
-    | expresion LBRACKET expresion RBRACKET %prec LBRACKET
-    | expresion LBRACKET expresion RBRACKET LBRACKET expresion RBRACKET %prec LBRACKET
+    | expresion LBRACKET expresion RBRACKET
+        %prec LBRACKET
+    | expresion LBRACKET expresion RBRACKET LBRACKET expresion RBRACKET
+        %prec LBRACKET
     ;
 
-expr_arit
-    ::= expresion PLUS expresion
+
+expr_arit ::=
+      expresion PLUS expresion
     | expresion MINUS expresion
     | expresion MULTIPLY expresion
     | expresion DIVIDE expresion
@@ -236,8 +310,9 @@ expr_arit
     | MINUS expresion
     ;
 
-expr_rel
-    ::= expresion LT expresion
+
+expr_rel ::=
+      expresion LT expresion
     | expresion GT expresion
     | expresion LE expresion
     | expresion GE expresion
@@ -245,112 +320,150 @@ expr_rel
     | expresion NEQ expresion
     ;
 
-expr_log
-    ::= expresion AND expresion
+
+expr_log ::=
+      expresion AND expresion
     | expresion OR expresion
     | expresion XOR expresion
     | NOT expresion
     ;
 
-expr_casteo
-    ::= LPAREN tipo RPAREN expresion
+
+expr_casteo ::=
+    LPAREN tipo RPAREN expresion
     ;
 
-expr_agrup
-    ::= LPAREN expresion RPAREN
+
+expr_agrup ::=
+    LPAREN expresion RPAREN
     ;
 
-if_sentencia
-    ::= IF LPAREN expresion RPAREN bloque
+
+/* ===========================
+   ESTRUCTURAS DE CONTROL F1
+   =========================== */
+
+if_sentencia ::=
+      IF LPAREN expresion RPAREN bloque
+    | IF LPAREN expresion RPAREN sentencia_simple
     | IF LPAREN expresion RPAREN bloque ELSE bloque
     | IF LPAREN expresion RPAREN bloque ELSE if_sentencia
     ;
 
-switch_sentencia
-    ::= SWITCH LPAREN expresion RPAREN LBRACE cases RBRACE
+
+switch_sentencia ::=
+      SWITCH LPAREN expresion RPAREN LBRACE cases RBRACE
     | SWITCH LPAREN expresion RPAREN LBRACE cases default_sent RBRACE
     | SWITCH LPAREN expresion RPAREN LBRACE default_sent RBRACE
     ;
 
-cases
-    ::= cases case_sent
+
+cases ::=
+      cases case_sent
     | case_sent
     ;
 
-case_sent
-    ::= CASE expresion COLON sentencias
+
+case_sent ::=
+    CASE expresion COLON sentencias
     ;
 
-default_sent
-    ::= DEFAULT COLON sentencias
+
+default_sent ::=
+    DEFAULT COLON sentencias
     ;
 
-while_sentencia
-    ::= WHILE LPAREN expresion RPAREN bloque
+
+while_sentencia ::=
+    WHILE LPAREN expresion RPAREN bloque
     ;
 
-for_sentencia
-    ::= FOR LPAREN asign_var SEMICOLON expresion SEMICOLON actualizacion_for RPAREN bloque
+
+/* FOR: actualización puede ser asignación o incremento (i++ / i--) */
+for_sentencia ::=
+      FOR LPAREN asign_var SEMICOLON expresion SEMICOLON actualizacion_for RPAREN bloque
     | FOR LPAREN decl_var SEMICOLON expresion SEMICOLON actualizacion_for RPAREN bloque
     ;
 
-actualizacion_for
-    ::= asign_var
+
+actualizacion_for ::=
+      asign_var
     | incremento
     ;
 
-incremento
-    ::= IDENTIFIER INCREMENT
+
+/* Incremento/decremento para el FOR */
+incremento ::=
+      IDENTIFIER INCREMENT
     | IDENTIFIER DECREMENT
     ;
 
-do_while_sentencia
-    ::= DO bloque WHILE LPAREN expresion RPAREN SEMICOLON
+
+do_while_sentencia ::=
+    DO bloque WHILE LPAREN expresion RPAREN SEMICOLON
     ;
 
-println_sentencia
-    ::= PRINTLN LPAREN valor RPAREN
+
+println_sentencia ::=
+    PRINTLN LPAREN valor RPAREN
     ;
 
-break_sentencia
-    ::= BREAK
+
+break_sentencia ::=
+    BREAK
     ;
 
-continue_sentencia
-    ::= CONTINUE
+
+continue_sentencia ::=
+    CONTINUE
     ;
 
-decl_funcion
-    ::= VOID IDENTIFIER LPAREN parametros_opt RPAREN bloque
+
+/* ===========================
+   F) Declaración de funciones / métodos
+   =========================== */
+
+decl_funcion ::=
+      VOID IDENTIFIER LPAREN parametros_opt RPAREN bloque
     | tipo IDENTIFIER LPAREN parametros_opt RPAREN bloque
     ;
 
-parametros_opt
-    ::= parametros
+
+parametros_opt ::=
+      parametros
     | /* empty */
     ;
 
-parametros
-    ::= parametros COMMA parametro
+
+parametros ::=
+      parametros COMMA parametro
     | parametro
     ;
 
-parametro
-    ::= tipo IDENTIFIER
+
+parametro ::=
+    tipo IDENTIFIER
     ;
 
-args_opt
-    ::= args
+
+/* ===========================
+   G) Argumentos + nombres reservados como funciones
+   =========================== */
+
+args_opt ::=
+      args
     | /* empty */
     ;
 
-args
-    ::= args COMMA valor
+
+args ::=
+      args COMMA valor
     | valor
     ;
 
-nombre_funcion
-    ::= IDENTIFIER
+
+nombre_funcion ::=
+      IDENTIFIER
     | ROUND
     | LENGTH
     | TOSTRING
@@ -358,41 +471,58 @@ nombre_funcion
     | START_WITH
     ;
 
-llamada_funcion
-    ::= nombre_funcion LPAREN args_opt RPAREN
+
+llamada_funcion ::=
+    nombre_funcion LPAREN args_opt RPAREN
     ;
 
-nombre_metodo
-    ::= IDENTIFIER
+
+/* ===========================
+   H) Métodos (miLista.append / remove / find / START_WITH)
+   =========================== */
+
+nombre_metodo ::=
+      IDENTIFIER
     | APPEND
     | REMOVE
     | FIND
     | START_WITH
     ;
 
-llamada_miembro
-    ::= expresion DOT nombre_metodo LPAREN args_opt RPAREN
+
+llamada_miembro ::=
+    expresion DOT nombre_metodo LPAREN args_opt RPAREN
     ;
 
-vector_literal
-    ::= LBRACKET lista_valores_opt RBRACKET
+
+/* ===========================
+   I) Literales de vector/matriz
+   =========================== */
+
+vector_literal ::=
+    LBRACKET lista_valores_opt RBRACKET
     ;
 
-lista_valores_opt
-    ::= lista_valores
+
+lista_valores_opt ::=
+      lista_valores
     | /* empty */
     ;
 
-lista_valores
-    ::= lista_valores COMMA expresion
+
+lista_valores ::=
+      lista_valores COMMA expresion
     | expresion
     ;
 
-filas_matriz
-    ::= filas_matriz COMMA vector_literal
+
+/* Matriz literal (NO vacía): [[1,2],[3,4]] */
+filas_matriz ::=
+      filas_matriz COMMA vector_literal
     | vector_literal
     ;
 
-matriz_literal
-    ::= LBRACKET filas_matriz RBRACKET
+
+matriz_literal ::=
+    LBRACKET filas_matriz RBRACKET
     ;

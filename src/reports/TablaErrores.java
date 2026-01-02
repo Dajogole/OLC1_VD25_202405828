@@ -42,11 +42,12 @@ public boolean tieneErroresSintacticos() {
         List<ErrorInfo> copia = new ArrayList<>(errores);
 
         copia.sort(
-            Comparator
-                .comparingInt((ErrorInfo e) -> ordenTipo(e.getTipo()))
-                .thenComparingInt(ErrorInfo::getLinea)
-                .thenComparingInt(ErrorInfo::getColumna)
-        );
+    Comparator
+        .comparingInt((ErrorInfo e) -> ordenTipo(e.getTipo()))
+        .thenComparingInt(ErrorInfo::getLinea)
+        .thenComparingInt(ErrorInfo::getColumna)
+        .thenComparingInt(ErrorInfo::getNumero)
+);
 
         return copia;
     }
@@ -72,14 +73,15 @@ public boolean tieneErroresSintacticos() {
     }
 
     private int ordenTipo(ErrorTipo tipo) {
-        if (tipo == null) return 99;
-        switch (tipo) {
-            case LEXICO: return 0;
-            case SINTACTICO: return 1;
-            case SEMANTICO: return 2;
-            default: return 99;
-        }
+    if (tipo == null) return 99;
+    switch (tipo) {
+        case LEXICO: return 0;
+        case SEMANTICO: return 1;
+        case SINTACTICO: return 2;
+        default: return 99;
     }
+}
+
 
     private String formatTipo(ErrorTipo tipo) {
         if (tipo == null) return "Desconocido";
